@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
+	"os"
 	"time"
 )
 
@@ -63,6 +64,17 @@ func (rep *Repository) TableCreation() error {
 	if err != nil {
 		return err
 	}
+
+	_, err = rep.pool.Exec(rep.ctx, `CREATE TABLE IF NOT EXISTS history
+		(
+			userId    BIGSERIAL,
+			segment   TEXT NOT NULL,
+			operation TEXT NOT NULL,
+			time date NOT NULL
+		);`)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -70,6 +82,7 @@ func (rep *Repository) GetSubs(id int64) ([]models.UserSubscription, error) {
 	var result []models.UserSubscription
 	var tmp models.UserSubscription
 	rows, err := rep.pool.Query(rep.ctx, "SELECT segment, timeToDie FROM subscription WHERE userId=$1", id)
+	defer rows.Close()
 	if err != nil {
 		return nil, errors.New("subscription not found:" + err.Error())
 	}
@@ -97,6 +110,7 @@ func (rep *Repository) CreateSegment(body models.SegmentBody) (models.SegmentBod
 	}
 	if body.Percent != 0 {
 		rows, err := rep.pool.Query(rep.ctx, "SELECT userId FROM subscription ORDER BY random() LIMIT (SELECT count(userId)*$1/100 FROM subscription)", body.Percent)
+		defer rows.Close()
 		if err != nil {
 			return models.SegmentBody{}, errors.New("cannot make percent subs:" + err.Error())
 		}
@@ -113,6 +127,10 @@ func (rep *Repository) CreateSegment(body models.SegmentBody) (models.SegmentBod
 			_, err := rep.pool.Exec(rep.ctx, "INSERT INTO subscription (userId, segment, timeToDie) VALUES ($1, $2, $3)", ids[i], result.Id, time.Time{})
 			if err != nil {
 				return models.SegmentBody{}, errors.New("cannot create note about new subscription:" + err.Error())
+			}
+			_, err = rep.pool.Exec(rep.ctx, "INSERT INTO history (userId, segment, operation, time) VALUES($1, (SELECT segmentName FROM segments WHERE id=$2), $3, $4)", ids[i], result.Id, "create by user", time.Now())
+			if err != nil {
+				fmt.Println("cannot create history note:" + err.Error())
 			}
 		}
 	}
@@ -136,6 +154,7 @@ func (rep *Repository) GetSegments() ([]models.SegmentBody, error) {
 	var result []models.SegmentBody
 	var tmp models.SegmentBody
 	rows, err := rep.pool.Query(rep.ctx, "SELECT * FROM segments")
+	defer rows.Close()
 	for rows.Next() {
 		if err := rows.Scan(&tmp.Id, &tmp.Name, &tmp.Percent); err != nil {
 			return []models.SegmentBody{}, err
@@ -154,11 +173,19 @@ func (rep *Repository) Subscriber(subscriber models.Subscriber) error {
 		if err != nil {
 			return errors.New(fmt.Sprintf("cannot add the new subscription for user %d\n", subscriber.UserId) + err.Error())
 		}
+		_, err = rep.pool.Exec(rep.ctx, "INSERT INTO history (userId, segment, operation, time) VALUES($1, $2, $3, $4)", subscriber.UserId, subscriber.Add[i], fmt.Sprintf("create by user"), time.Now())
+		if err != nil {
+			fmt.Println("cannot create history note:" + err.Error())
+		}
 	}
 	for i := 0; i < len(subscriber.Delete); i++ {
 		_, err := rep.pool.Exec(rep.ctx, "DELETE FROM subscription WHERE userId = $1 AND segment = (SELECT id FROM segments WHERE segmentName = $2)", subscriber.UserId, subscriber.Delete[i])
 		if err != nil {
 			return errors.New(fmt.Sprintf("cannot delete the subscription for user %d\n", subscriber.UserId) + err.Error())
+		}
+		_, err = rep.pool.Exec(rep.ctx, "INSERT INTO history (userId, segment, operation, time) VALUES($1, (SELECT segmentName FROM segments WHERE id=$2), $3, $4)", subscriber.UserId, subscriber.Delete[i], "delete by user command", time.Now())
+		if err != nil {
+			fmt.Println("cannot create history note:" + err.Error())
 		}
 	}
 	return nil
@@ -168,6 +195,10 @@ func (rep *Repository) SubWIthTimeout(id int64, name string, timeToDie time.Time
 	_, err := rep.pool.Exec(rep.ctx, "INSERT INTO subscription (userId, segment, timeToDie) VALUES($2, (SELECT id FROM segments WHERE segmentName=$1), $3) ON CONFLICT (userId, segment) DO UPDATE SET timeToDie = $3", name, id, timeToDie)
 	if err != nil {
 		return errors.New("cannot create timeouts subscription: " + err.Error())
+	}
+	_, err = rep.pool.Exec(rep.ctx, "INSERT INTO history (userId, segment, operation, time) VALUES($1, $2, $3, $4)", id, name, fmt.Sprintf("create with ttl with die in %v", timeToDie), time.Now())
+	if err != nil {
+		fmt.Println("cannot create history note:" + err.Error())
 	}
 	return nil
 }
@@ -180,6 +211,7 @@ func (rep *Repository) TimeOutDeleter(sec chan int) {
 		default:
 			time.Sleep(time.Second * 20)
 			rows, err := rep.pool.Query(rep.ctx, "SELECT userId, segment FROM subscription WHERE timeToDie<$1 AND timeToDie != $2", time.Now(), time.Time{})
+			defer rows.Close()
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -196,8 +228,33 @@ func (rep *Repository) TimeOutDeleter(sec chan int) {
 				if err != nil {
 					fmt.Println(err)
 				}
+				_, err = rep.pool.Exec(rep.ctx, "INSERT INTO history (userId, segment, operation, time) VALUES($1, (SELECT segmentName FROM segments WHERE id=$2), $3, $4)", user, segment, "delete with ttl", time.Now())
+				if err != nil {
+					fmt.Println(err)
+				}
 			}
 		}
 	}
 
+}
+
+func (rep *Repository) History(userId int64, from time.Time, to time.Time) (string, error) {
+	rows, err := rep.pool.Query(rep.ctx, "SELECT * FROM history WHERE userId=$3 AND time BETWEEN $1 AND $2", from, to, userId)
+	defer rows.Close()
+	if err != nil {
+		return "", err
+	}
+	file, err := os.Create("output.csv")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	var tmp models.History
+	for rows.Next() {
+		if err := rows.Scan(&tmp.UserId, &tmp.Segment, &tmp.Operation, &tmp.Time); err != nil {
+			return "", err
+		}
+		fmt.Fprintln(file, tmp.UserId, ";", tmp.Segment, ";", tmp.Operation, ";", tmp.Time)
+	}
+	return "output.csv", nil
 }

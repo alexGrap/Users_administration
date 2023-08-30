@@ -24,3 +24,10 @@ type SubscribeWithTimeout struct {
 	SegmentName string `json:"segmentName"`
 	TimeOut     int    `json:"timeToDie"`
 }
+
+type History struct {
+	UserId    int64     `json:"userId"`
+	Segment   string    `json:"segment"`
+	Operation string    `json:"Operation"`
+	Time      time.Time `json:"time"`
+}

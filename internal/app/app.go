@@ -2,10 +2,13 @@ package app
 
 import (
 	"avito/config"
+	_ "avito/docs"
 	"avito/internal/handlers"
 	"avito/internal/repository"
 	"avito/internal/usecase"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/swagger"
 	"log"
 	"os"
 	"os/signal"
@@ -23,8 +26,10 @@ type App struct {
 func InitApp(conf *config.Config) *App {
 	app := App{}
 	app.server = fiber.New()
+
+	app.server.Use(logger.New())
 	app.repository = repository.InitRepository(conf)
-	app.useCase = usecase.InitUsecase(app.repository)
+	app.useCase = usecase.InitUseCase(app.repository)
 	app.handlers = handlers.InitHandlers(app.useCase)
 	app.server.Get("/getById", app.handlers.GetById)
 	app.server.Post("/createSegment", app.handlers.CreateSegment)
@@ -32,6 +37,8 @@ func InitApp(conf *config.Config) *App {
 	app.server.Get("/getSegment", app.handlers.GetSegments)
 	app.server.Put("/subscription", app.handlers.Subscriber)
 	app.server.Put("/timeoutSubscribe", app.handlers.SubscribeWithTimeOut)
+	app.server.Get("/swagger/*", swagger.HandlerDefault)
+	app.server.Get("/history", app.handlers.History)
 	return &app
 }
 

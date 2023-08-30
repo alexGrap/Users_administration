@@ -1,0 +1,173 @@
+basePath: /
+definitions:
+  models.SegmentBody:
+    properties:
+      id:
+        type: integer
+      percents:
+        type: integer
+      segmentName:
+        type: string
+    type: object
+  models.SubscribeWithTimeout:
+    properties:
+      segmentName:
+        type: string
+      timeToDie:
+        type: integer
+      userId:
+        type: integer
+    type: object
+  models.Subscriber:
+    properties:
+      add:
+        items:
+          type: string
+        type: array
+      delete:
+        items:
+          type: string
+        type: array
+      userId:
+        type: integer
+    type: object
+host: localhost:3000
+info:
+  contact: {}
+  description: Intern REST-service.
+  title: avito_intern
+  version: "1.0"
+paths:
+  /createSegment:
+    post:
+      consumes:
+      - application/json
+      description: Create a segment. You need to post name of segment and if this
+        need percent of user
+      parameters:
+      - description: Body of creation segment
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.SegmentBody'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: OK
+        "503":
+          description: Bad request
+      summary: Create a new segment
+      tags:
+      - Segment
+  /deleteSegment:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a segment. You need to post name of segment
+      parameters:
+      - description: Name of segment
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.SegmentBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "503":
+          description: Bad request
+      summary: Delete a segment
+      tags:
+      - Segment
+  /getById:
+    get:
+      description: Get list of user`s subscriptions.
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Bad request
+        "503":
+          description: Not found
+      summary: Get subscriptions
+      tags:
+      - User
+  /getSegment:
+    get:
+      description: Get a segment.
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: OK
+        "503":
+          description: Bad request
+      summary: Get all existed segments
+      tags:
+      - Segment
+  /subscription:
+    put:
+      consumes:
+      - application/json
+      description: Create new and delete existed subscription for user
+      parameters:
+      - description: Body of subscription
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.Subscriber'
+      produces:
+      - application/json
+      responses:
+        "203":
+          description: OK
+        "503":
+          description: Bad request
+      summary: Make a subscription
+      tags:
+      - User
+  /timeoutSubscribe:
+    put:
+      consumes:
+      - application/json
+      description: Get user subscriptions history
+      parameters:
+      - description: User ID
+        in: query
+        name: userId
+        required: true
+        type: integer
+      - description: 'Time start. ex: 2020-03-20'
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: 'Time end. ex: 2024-03-20'
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "203":
+          description: OK
+        "400":
+          description: Bad request
+      summary: Get history
+      tags:
+      - History
+swagger: "2.0"

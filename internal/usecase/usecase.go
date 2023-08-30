@@ -15,13 +15,14 @@ type repository interface {
 	Subscriber(subscriber models.Subscriber) error
 	SubWIthTimeout(id int64, name string, timeToDie time.Time) error
 	TimeOutDeleter(sec chan int)
+	History(userId int64, from time.Time, to time.Time) (string, error)
 }
 
 type UseCase struct {
 	repository
 }
 
-func InitUsecase(rep repository) *UseCase {
+func InitUseCase(rep repository) *UseCase {
 
 	return &UseCase{rep}
 }
@@ -78,4 +79,23 @@ func (useCase *UseCase) SubWithTime(body models.SubscribeWithTimeout) ([]models.
 		return []models.UserSubscription{}, err
 	}
 	return useCase.repository.GetSubs(body.UserId)
+}
+
+func (useCase *UseCase) History(userId int64, from string, to string) (string, error) {
+	fromTime, err := time.Parse("2006-01-02", from)
+	if err != nil {
+		return "", errors.New("not valid FROM parameter:" + err.Error())
+	}
+	toTime, err := time.Parse("2006-01-02", to)
+	if err != nil {
+		return "", errors.New("not valid TO parameter:" + err.Error())
+	}
+	if toTime.Sub(fromTime) < 0 {
+		return "", errors.New("FROM value smaller than TO value")
+	}
+	result, err := useCase.repository.History(userId, fromTime, toTime)
+	if err != nil {
+		return "", err
+	}
+	return result, nil
 }
