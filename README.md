@@ -15,13 +15,20 @@ http://localhost:3000/swagger/index.html#/
 ```
 
 ## Поддерживаемые запросы
-``GET /getSegment`` - получение списка всех созданных сегментов</br>
-``GET /getById?id={userId}`` - получение информации о сегментах, в которых состоит пользователь по его id.</br>
-``POST /createSegment body{ "segmentName" : {segmentName}, "percent" : {usersPercent} }`` - создание нового сегмента с указанием процента пользователей, которые будут в него добавлены.</br>
-``DELETE /deleteSegment body{ "segmentName" : {segmentName} }`` - удаление существующего сегмента.</br>
-``PUT /subsription body{"userId" : {userId}, "add" : [ {adding segments} ], "delete" : [ {segment for delete} ]}`` - добавление и удаление ранее созданных сегментов пользователю</br>
-``PUT /timeoutSubscribe body{"userId" : {userId}, "segmentName" : {segmentName}, "timeOut" : {timeout of living}}`` - добавление пользователю сегмента на срок {timeOut} дней (целочисленной значение).</br>
-``GET /history?userId={userId}&from={date}&to={date}`` - возвращает информацию о добавлении и удалении пользователю сегментов в период с from до to дат.</br>
+``GET /getSegment``</br>
+#получение списка всех созданных сегментов</br>
+``GET /getById?id={userId}``</br>
+#получение информации о сегментах, в которых состоит пользователь по его id.</br>
+``POST /createSegment body{ "segmentName" : {segmentName}, "percent" : {usersPercent} }``</br>
+#создание нового сегмента с указанием процента пользователей, которые будут в него добавлены.</br>
+``DELETE /deleteSegment body{ "segmentName" : {segmentName} }``</br>
+#удаление существующего сегмента.</br>
+``PUT /subsription body{"userId" : {userId}, "add" : [ {adding segments} ], "delete" : [ {segment for delete} ]}``</br>
+#добавление и удаление ранее созданных сегментов пользователю</br>
+``PUT /timeoutSubscribe body{"userId" : {userId}, "segmentName" : {segmentName}, "timeOut" : {timeout of living}}``</br>
+#добавление пользователю сегмента на срок {timeOut} дней (целочисленной значение).</br>
+``GET /history?userId={userId}&from={date}&to={date}``</br>
+#возвращает информацию о добавлении и удалении пользователю сегментов в период с from до to дат.</br>
 
 ## Примеры запросов
 ```shell
@@ -39,3 +46,7 @@ curl -X PUT localhost:3000/timeoutSubscribe -H "Content-Type: application/json" 
 
 curl -X GET localhost:3000/history?userId=18&from=2020-03-20&to=2024-03-20
 ```
+
+## Комментарии к исполнению
+1. Реализация запросов позволяет использовать названия сегментов везде, где необходимо, что соответствует требованию примерной реализации из тз</br>
+2. Реализация TTL основнано на том, что добавление в сегмент происходит на {timeOut} дней</br>
